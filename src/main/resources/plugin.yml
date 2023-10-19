@@ -6,3 +6,11 @@ folia-supported: true
 author: Paper99
 depend:
   - Database
+
+commands:
+  tip:
+    permission: paper-card-tip.command
+
+permissions:
+  paper-card-tip.command:
+    default: op
