@@ -4,6 +4,7 @@ import cn.paper_card.mc_command.TheMcCommand;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
@@ -39,6 +40,7 @@ class TipCommand extends TheMcCommand.HasSub {
 
         this.addSubCommand(new Id());
         this.addSubCommand(new Add());
+        this.addSubCommand(new Update());
         this.addSubCommand(new Delete());
         this.addSubCommand(new DeleteConfirmCancel(true));
         this.addSubCommand(new DeleteConfirmCancel(false));
@@ -126,6 +128,123 @@ class TipCommand extends TheMcCommand.HasSub {
             if (strings.length == 2) {
                 final String arg = strings[1];
                 if (arg.isEmpty()) {
+                    final LinkedList<String> list = new LinkedList<>();
+                    list.add("<分类>");
+                    return list;
+                }
+                return null;
+            }
+
+            return null;
+        }
+    }
+
+    class Update extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected Update() {
+            super("update");
+            this.permission = plugin.addPermission(TipCommand.this.permission.getName() + "." + this.getLabel());
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            // <id> <内容> <分类>
+            final String argId = strings.length > 0 ? strings[0] : null;
+            final String argContent = strings.length > 1 ? strings[1] : null;
+            final String argCategory = strings.length > 2 ? strings[2] : null;
+
+            if (argId == null) {
+                plugin.sendError(commandSender, "你必须提供参数：ID");
+                return true;
+            }
+
+            if (argContent == null) {
+                plugin.sendError(commandSender, "你必须提供参数：内容");
+                return true;
+            }
+
+            if (argCategory == null) {
+                plugin.sendError(commandSender, "你必须提供参数：分类");
+                return true;
+            }
+
+            if (strings.length != 3) {
+                plugin.sendError(commandSender, "只需要3个参数，而你提供了%d个参数，参数里有空格？".formatted(strings.length));
+                return true;
+            }
+
+            final int id;
+
+            try {
+                id = Integer.parseInt(argId);
+            } catch (NumberFormatException e) {
+                plugin.sendError(commandSender, "%s 不是正确的ID".formatted(argId));
+                return true;
+            }
+
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final boolean updated;
+
+                try {
+                    updated = plugin.updateTipById(new PaperCardTipApi.Tip(id, argContent, argCategory));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
+
+                if (!updated) {
+                    plugin.sendWarning(commandSender, "更新失败，可能以%d为ID的TIp不存在，请直接添加".formatted(id));
+                    return;
+                }
+
+                final TextComponent.Builder text = Component.text();
+                text.append(Component.text("已修改ID为%d的Tip".formatted(id)).color(NamedTextColor.GREEN));
+                text.appendSpace();
+                text.append(Component.text("[查看]")
+                        .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(ClickEvent.runCommand("/tip id %d".formatted(id)))
+                        .hoverEvent(HoverEvent.showText(Component.text("点击查看")))
+                );
+
+                plugin.sendInfo(commandSender, text.build());
+            });
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            if (strings.length == 1) {
+                final String argId = strings[0];
+                if (argId.isEmpty()) {
+                    final LinkedList<String> list = new LinkedList<>();
+                    list.add("<ID>");
+                    return list;
+                }
+                return null;
+            }
+
+            if (strings.length == 2) {
+                final String argContent = strings[1];
+                if (argContent.isEmpty()) {
+                    final LinkedList<String> list = new LinkedList<>();
+                    list.add("<内容>");
+                    return list;
+                }
+                return null;
+            }
+
+            if (strings.length == 3) {
+                final String argCategory = strings[2];
+                if (argCategory.isEmpty()) {
                     final LinkedList<String> list = new LinkedList<>();
                     list.add("<分类>");
                     return list;
