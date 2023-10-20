@@ -153,35 +153,64 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
 
     @Override
     public @Nullable Tip queryById(int id) throws Exception {
-        try {
-            final Table t = this.getTable();
-            final List<Tip> tips = t.queryTipById(id);
-            final int size = tips.size();
-
-            if (size == 1) return tips.get(0);
-            if (size == 0) return null;
-            throw new Exception("根据一个ID查询到了%d条数据！".formatted(size));
-        } catch (SQLException e) {
+        synchronized (this.mySqlConnection) {
             try {
-                this.mySqlConnection.checkClosedException(e);
-            } catch (SQLException ignored) {
+                final Table t = this.getTable();
+                final List<Tip> tips = t.queryTipById(id);
+                final int size = tips.size();
+
+                if (size == 1) return tips.get(0);
+                if (size == 0) return null;
+                throw new Exception("根据一个ID查询到了%d条数据！".formatted(size));
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.checkClosedException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
             }
-            throw e;
         }
     }
 
     @Override
-    public @Nullable Tip queryOneTip(int offset) throws Exception {
-        return null;
+    public @NotNull List<Tip> queryByPage(int limit, int offset) throws Exception {
+        synchronized (this.mySqlConnection) {
+            try {
+                final Table t = this.getTable();
+                final List<Tip> tips = t.queryByPage(limit, offset);
+                this.mySqlConnection.setLastUseTime();
+                return tips;
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.checkClosedException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+        }
     }
 
     @Override
-    public int queryCount() throws Exception {
-        return 0;
+    public int queryCount() throws SQLException {
+        synchronized (this.mySqlConnection) {
+            try {
+                final Table t = this.getTable();
+                final int n = t.queryCount();
+                this.mySqlConnection.setLastUseTime();
+                return n;
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.checkClosedException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+        }
     }
 
     @Override
     public int queryPlayerIndex(@NotNull UUID uuid) throws Exception {
+
         return 0;
     }
 

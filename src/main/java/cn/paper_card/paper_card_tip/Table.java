@@ -25,6 +25,10 @@ class Table {
 
     private PreparedStatement stmtQueryTipById = null;
 
+    private PreparedStatement stmtQueryByPage = null;
+
+    private PreparedStatement stmtQueryCount = null;
+
     Table(@NotNull Connection connection) throws SQLException {
         this.connection = connection;
         this.create1();
@@ -84,6 +88,22 @@ class Table {
                     ("SELECT id,content,category FROM %s WHERE id=?".formatted(NAME_TIPS));
         }
         return this.stmtQueryTipById;
+    }
+
+    private @NotNull PreparedStatement getStmtQueryByPage() throws SQLException {
+        if (this.stmtQueryByPage == null) {
+            this.stmtQueryByPage = this.connection.prepareStatement
+                    ("SELECT id,content,category FROM %s LIMIT ? OFFSET ?".formatted(NAME_TIPS));
+        }
+        return this.stmtQueryByPage;
+    }
+
+    private @NotNull PreparedStatement getStmtQueryCount() throws SQLException {
+        if (this.stmtQueryCount == null) {
+            this.stmtQueryCount = this.connection.prepareStatement
+                    ("SELECT count(*) FROM %s".formatted(NAME_TIPS));
+        }
+        return this.stmtQueryCount;
     }
 
     private @NotNull List<PaperCardTipApi.Tip> parseAllTips(@NotNull ResultSet resultSet) throws SQLException {
@@ -155,5 +175,36 @@ class Table {
         ps.setInt(1, id);
         final ResultSet resultSet = ps.executeQuery();
         return this.parseAllTips(resultSet);
+    }
+
+    @NotNull List<PaperCardTipApi.Tip> queryByPage(int limit, int offset) throws SQLException {
+        final PreparedStatement ps = this.getStmtQueryByPage();
+        ps.setInt(1, limit);
+        ps.setInt(2, offset);
+        final ResultSet resultSet = ps.executeQuery();
+        return this.parseAllTips(resultSet);
+    }
+
+    int queryCount() throws SQLException {
+        final PreparedStatement ps = this.getStmtQueryCount();
+        final ResultSet resultSet = ps.executeQuery();
+
+        final int n;
+
+        try {
+            if (resultSet.next()) {
+                n = resultSet.getInt(1);
+            } else throw new SQLException("不应该没有数据！");
+
+            if (resultSet.next()) throw new SQLException("不应该还有数据！");
+        } catch (SQLException e) {
+            try {
+                resultSet.close();
+            } catch (SQLException ignored) {
+            }
+            throw e;
+        }
+        resultSet.close();
+        return n;
     }
 }

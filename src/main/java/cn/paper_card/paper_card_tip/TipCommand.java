@@ -38,6 +38,7 @@ class TipCommand extends TheMcCommand.HasSub {
 
         this.toDeletes = new HashMap<>();
 
+        this.addSubCommand(new ListAll());
         this.addSubCommand(new Id());
         this.addSubCommand(new Add());
         this.addSubCommand(new Update());
@@ -489,6 +490,123 @@ class TipCommand extends TheMcCommand.HasSub {
                 }
                 return null;
             }
+            return null;
+        }
+    }
+
+    class ListAll extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected ListAll() {
+            super("list");
+            this.permission = plugin.addPermission(TipCommand.this.permission.getName() + "." + this.getLabel());
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            final String argPage = strings.length > 0 ? strings[0] : null;
+
+            final int pageNo;
+
+            if (argPage == null) {
+                pageNo = 1;
+            } else {
+                try {
+                    pageNo = Integer.parseInt(argPage);
+                } catch (NumberFormatException e) {
+                    plugin.sendError(commandSender, "%s 不是正确的页码".formatted(argPage));
+                    return true;
+                }
+            }
+
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final int pageSize = 4;
+                final List<PaperCardTipApi.Tip> list;
+
+                try {
+                    list = plugin.queryByPage(pageSize, (pageNo - 1) * pageSize);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
+
+                final int size = list.size();
+
+                final TextComponent.Builder text = Component.text();
+                text.append(Component.text("==== Tips | 第%d页 ====".formatted(pageNo)).color(NamedTextColor.GREEN));
+                text.appendNewline();
+
+
+                if (size == 0) {
+                    text.append(Component.text("本页没有任何记录啦").color(NamedTextColor.GRAY));
+                    text.appendNewline();
+                } else {
+                    text.append(Component.text("ID | 内容 | 分类 | 操作").color(NamedTextColor.GRAY));
+                    text.appendNewline();
+
+                    for (PaperCardTipApi.Tip tip : list) {
+                        text.append(Component.text(tip.id()).color(NamedTextColor.GRAY));
+                        text.append(Component.text(" | "));
+
+                        text.append(Component.text(tip.content()).color(NamedTextColor.GREEN)
+                                .clickEvent(ClickEvent.copyToClipboard(tip.content()))
+                                .hoverEvent(HoverEvent.showText(Component.text("点击复制")))
+                        );
+                        text.append(Component.text(" | "));
+
+
+                        text.append(Component.text(tip.category()).color(NamedTextColor.GOLD)
+                                .clickEvent(ClickEvent.copyToClipboard(tip.category()))
+                                .hoverEvent(HoverEvent.showText(Component.text("点击复制")))
+                        );
+                        text.append(Component.text(" | "));
+
+                        text.append(Component.text("[修改]")
+                                .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                                .clickEvent(ClickEvent.suggestCommand("/tip update %d ".formatted(tip.id())))
+                        );
+                        text.appendSpace();
+
+                        text.append(Component.text("[删除]")
+                                .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                                .clickEvent(ClickEvent.runCommand("/tip delete %d".formatted(tip.id())))
+                        );
+
+                        text.appendNewline();
+                    }
+                }
+
+                final boolean hasPre = pageNo > 1;
+                final boolean noNext = size < pageSize;
+
+                text.append(Component.text("[上一页]")
+                        .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(hasPre ? ClickEvent.runCommand("/tip list %d".formatted(pageNo - 1)) : null)
+                        .hoverEvent(HoverEvent.showText(Component.text(hasPre ? "点击上一页" : "没有上一页啦")))
+                );
+
+                text.appendSpace();
+                text.append(Component.text("[下一页]")
+                        .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(noNext ? null : ClickEvent.runCommand("/tip list %d".formatted(pageNo + 1)))
+                        .hoverEvent(HoverEvent.showText(Component.text(noNext ? "没有下一页啦" : "点击下一页")))
+                );
+
+                plugin.sendInfo(commandSender, text.build());
+            });
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
             return null;
         }
     }
