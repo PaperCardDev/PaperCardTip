@@ -37,6 +37,6 @@ public interface PaperCardTipApi {
     int queryPlayerIndex(@NotNull UUID uuid) throws Exception;
 
     // 设置玩家的index
-    void setPlayerIndex(@NotNull UUID uuid, int index) throws Exception;
+    boolean setPlayerIndex(@NotNull UUID uuid, int index) throws Exception;
 
 }

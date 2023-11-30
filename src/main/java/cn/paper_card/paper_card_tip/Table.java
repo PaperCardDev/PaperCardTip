@@ -1,7 +1,8 @@
 package cn.paper_card.paper_card_tip;
 
-import cn.paper_card.database.DatabaseConnection;
+import cn.paper_card.database.api.Util;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -9,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 
 // USE MYSQL
@@ -29,6 +31,13 @@ class Table {
 
     private PreparedStatement stmtQueryCount = null;
 
+    //
+    private PreparedStatement stmtInsertIndex = null;
+
+    private PreparedStatement stmtUpdateIndex = null;
+
+    private PreparedStatement stmtQueryIndex = null;
+
     Table(@NotNull Connection connection) throws SQLException {
         this.connection = connection;
         this.create1();
@@ -36,7 +45,7 @@ class Table {
     }
 
     private void create1() throws SQLException {
-        DatabaseConnection.createTable(this.connection, """
+        Util.executeSQL(this.connection, """
                 CREATE TABLE IF NOT EXISTS %s (
                       id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
                       content VARCHAR(512) NOT NULL,
@@ -45,7 +54,7 @@ class Table {
     }
 
     private void create2() throws SQLException {
-        DatabaseConnection.createTable(this.connection, """
+        Util.executeSQL(this.connection, """
                 CREATE TABLE IF NOT EXISTS %s (
                     uid1 BIGINT NOT NULL,
                     uid2 BIGINT NOT NULL,
@@ -55,7 +64,7 @@ class Table {
 
 
     void close() throws SQLException {
-        DatabaseConnection.closeAllStatements(this.getClass(), this);
+        Util.closeAllStatements(this.getClass(), this);
     }
 
     private @NotNull PreparedStatement getStmtInsertTip() throws SQLException {
@@ -104,6 +113,30 @@ class Table {
                     ("SELECT count(*) FROM %s".formatted(NAME_TIPS));
         }
         return this.stmtQueryCount;
+    }
+
+    private @NotNull PreparedStatement getStmtInsertIndex() throws SQLException {
+        if (this.stmtInsertIndex == null) {
+            this.stmtInsertIndex = this.connection.prepareStatement
+                    ("INSERT INTO %s (uid1,uid2,i) VALUES (?,?,?)".formatted(NAME_TIP_INDEX));
+        }
+        return this.stmtInsertIndex;
+    }
+
+    private @NotNull PreparedStatement getStmtUpdateIndex() throws SQLException {
+        if (this.stmtUpdateIndex == null) {
+            this.stmtUpdateIndex = this.connection.prepareStatement
+                    ("UPDATE %s SET i=? WHERE uid1=? AND uid2=?".formatted(NAME_TIP_INDEX));
+        }
+        return this.stmtUpdateIndex;
+    }
+
+    private @NotNull PreparedStatement getStmtQueryIndex() throws SQLException {
+        if (this.stmtQueryIndex == null) {
+            this.stmtQueryIndex = this.connection.prepareStatement
+                    ("SELECT i FROM %s WHERE uid1=? AND uid2=?".formatted(NAME_TIP_INDEX));
+        }
+        return this.stmtQueryIndex;
     }
 
     private @NotNull List<PaperCardTipApi.Tip> parseAllTips(@NotNull ResultSet resultSet) throws SQLException {
@@ -206,5 +239,47 @@ class Table {
         }
         resultSet.close();
         return n;
+    }
+
+    int insertPlayerIndex(@NotNull UUID uuid, int i) throws SQLException {
+        final PreparedStatement ps = this.getStmtInsertIndex();
+        ps.setLong(1, uuid.getMostSignificantBits());
+        ps.setLong(2, uuid.getLeastSignificantBits());
+        ps.setInt(3, i);
+        return ps.executeUpdate();
+    }
+
+    int updatePlayerIndex(@NotNull UUID uuid, int i) throws SQLException {
+        final PreparedStatement ps = this.getStmtUpdateIndex();
+        ps.setInt(1, i);
+        ps.setLong(2, uuid.getMostSignificantBits());
+        ps.setLong(3, uuid.getLeastSignificantBits());
+        return ps.executeUpdate();
+    }
+
+    @Nullable Integer queryPlayerIndex(@NotNull UUID uuid) throws SQLException {
+        final PreparedStatement ps = this.getStmtQueryIndex();
+        ps.setLong(1, uuid.getMostSignificantBits());
+        ps.setLong(2, uuid.getLeastSignificantBits());
+
+        final ResultSet resultSet = ps.executeQuery();
+        final Integer i;
+        try {
+            if (resultSet.next()) {
+                i = resultSet.getInt(1);
+            } else i = null;
+
+            if (resultSet.next()) throw new SQLException("不应该还有数据！");
+
+        } catch (SQLException e) {
+            try {
+                resultSet.close();
+            } catch (SQLException ignored) {
+            }
+            throw e;
+        }
+        resultSet.close();
+
+        return i;
     }
 }

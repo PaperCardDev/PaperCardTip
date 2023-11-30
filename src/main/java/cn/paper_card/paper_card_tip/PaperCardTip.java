@@ -1,8 +1,9 @@
 package cn.paper_card.paper_card_tip;
 
-import cn.paper_card.database.DatabaseApi;
+import cn.paper_card.database.api.DatabaseApi;
 import com.github.Anon8281.universalScheduler.UniversalScheduler;
 import com.github.Anon8281.universalScheduler.scheduling.schedulers.TaskScheduler;
+import com.github.Anon8281.universalScheduler.scheduling.tasks.MyScheduledTask;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -11,7 +12,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.CommandSender;
 import org.bukkit.permissions.Permission;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,12 +19,11 @@ import org.jetbrains.annotations.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
 
-    private final @NotNull DatabaseApi.MySqlConnection mySqlConnection;
+    private DatabaseApi.MySqlConnection mySqlConnection;
 
     private Table table = null;
     private Connection connection = null;
@@ -33,9 +32,9 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
 
     private final @NotNull TaskScheduler taskScheduler;
 
+    private MyScheduledTask myScheduledTask = null;
+
     public PaperCardTip() {
-        @NotNull DatabaseApi api = this.getDatabaseApi0();
-        this.mySqlConnection = api.getRemoteMySqlDb().getConnectionImportant();
 
         this.prefix = Component.text()
                 .append(Component.text("[").color(NamedTextColor.LIGHT_PURPLE))
@@ -46,37 +45,99 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
         this.taskScheduler = UniversalScheduler.getScheduler(this);
     }
 
-    private @NotNull DatabaseApi getDatabaseApi0() {
-        final Plugin plugin = this.getServer().getPluginManager().getPlugin("Database");
-        if (plugin instanceof final DatabaseApi api) {
-            return api;
-        }
-        throw new NoSuchElementException("Database插件未安装！");
+    private @NotNull Table getTable() throws SQLException {
+        final Connection newCon = this.mySqlConnection.getRawConnection();
+        if (this.connection != null && this.connection == newCon) return this.table;
+
+        if (this.table != null) this.table.close();
+        this.table = new Table(newCon);
+        this.connection = newCon;
+        return this.table;
     }
 
-    private @NotNull Table getTable() throws SQLException {
-        final Connection rowConnection = this.mySqlConnection.getRowConnection();
-        if (this.connection == null) {
-            this.connection = rowConnection;
-            this.table = new Table(rowConnection);
-            return this.table;
-        } else if (this.connection == rowConnection) {
-            return this.table;
-        } else {
-            this.connection = rowConnection;
-            if (this.table != null) this.table.close();
-            this.table = new Table(rowConnection);
-            return this.table;
-        }
+    int getIndex() {
+        return this.getConfig().getInt("index", 0);
+    }
+
+    void setIndex(int i) {
+        this.getConfig().set("index", i);
+    }
+
+    @Override
+    public void onLoad() {
+        final DatabaseApi api = this.getServer().getServicesManager().load(DatabaseApi.class);
+        if (api == null) throw new RuntimeException("无法连接到" + DatabaseApi.class.getSimpleName());
+
+        this.mySqlConnection = api.getRemoteMySQL().getConnectionImportant();
     }
 
     @Override
     public void onEnable() {
         new TipCommand(this);
+
+        this.setIndex(this.getIndex());
+        this.saveConfig();
+
+        try {
+            final int n = this.queryCount();
+            this.getLogger().info("一共%d条Tip".formatted(n));
+        } catch (SQLException e) {
+            this.getLogger().severe(e.toString());
+            e.printStackTrace();
+        }
+
+        if (this.myScheduledTask == null) {
+            this.myScheduledTask = getTaskScheduler().runTaskTimerAsynchronously(() -> {
+                final int count;
+                try {
+                    count = this.queryCount();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    return;
+                }
+
+                if (count <= 0) return;
+
+                int i = this.getIndex();
+                i %= count;
+
+                final List<Tip> tips;
+                try {
+                    tips = this.queryByPage(1, i);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return;
+                }
+
+                final int size = tips.size();
+                if (size == 1) {
+                    final Tip tip = tips.get(0);
+                    this.getServer().broadcast(Component.text()
+                            .append(Component.text("[你知道吗？#%d]".formatted(tip.id())).color(NamedTextColor.GREEN))
+                            .appendSpace()
+                            .append(Component.text(tip.content()).color(NamedTextColor.GREEN).decorate(TextDecoration.BOLD))
+                            .append(Component.text("  --"))
+                            .append(Component.text(tip.category()).color(NamedTextColor.GOLD).decorate(TextDecoration.ITALIC))
+                            .build()
+                    );
+                }
+
+                i += 1;
+                i %= count;
+                this.setIndex(i);
+            }, 20 * 60, 20 * 60 * 20);
+        }
     }
 
     @Override
     public void onDisable() {
+        this.saveConfig();
+
+        if (this.myScheduledTask != null) {
+            this.myScheduledTask.cancel();
+            this.myScheduledTask = null;
+        }
+
         synchronized (this.mySqlConnection) {
             if (this.table != null) {
                 try {
@@ -100,7 +161,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 return id;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -121,7 +182,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 throw new Exception("根据一个ID删除了%d条数据！".formatted(deleted));
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -143,7 +204,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 throw new Exception("根据一个ID更新了%d条数据！".formatted(updated));
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -164,7 +225,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 throw new Exception("根据一个ID查询到了%d条数据！".formatted(size));
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -182,7 +243,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 return tips;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -200,7 +261,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 return n;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -209,14 +270,47 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
     }
 
     @Override
-    public int queryPlayerIndex(@NotNull UUID uuid) throws Exception {
-
-        return 0;
+    public int queryPlayerIndex(@NotNull UUID uuid) throws SQLException {
+        synchronized (this.mySqlConnection) {
+            try {
+                final Table t = this.getTable();
+                final Integer index = t.queryPlayerIndex(uuid);
+                this.mySqlConnection.setLastUseTime();
+                if (index == null) return 0;
+                return index;
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.handleException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+        }
     }
 
     @Override
-    public void setPlayerIndex(@NotNull UUID uuid, int index) throws Exception {
-
+    public boolean setPlayerIndex(@NotNull UUID uuid, int index) throws Exception {
+        synchronized (this.mySqlConnection) {
+            try {
+                final Table t = this.getTable();
+                final int updated = t.updatePlayerIndex(uuid, index);
+                this.mySqlConnection.setLastUseTime();
+                if (updated == 1) return false;
+                if (updated == 0) {
+                    final int inserted = t.insertPlayerIndex(uuid, index);
+                    this.mySqlConnection.setLastUseTime();
+                    if (inserted != 1) throw new Exception("插入了%d条数据！".formatted(inserted));
+                    return true;
+                }
+                throw new Exception("更新了%d条数据！".formatted(updated));
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.handleException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+        }
     }
 
     @NotNull Permission addPermission(@NotNull String name) {
