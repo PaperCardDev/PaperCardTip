@@ -101,8 +101,11 @@ class Table {
 
     private @NotNull PreparedStatement getStmtQueryByPage() throws SQLException {
         if (this.stmtQueryByPage == null) {
-            this.stmtQueryByPage = this.connection.prepareStatement
-                    ("SELECT id,content,category FROM %s LIMIT ? OFFSET ?".formatted(NAME_TIPS));
+            this.stmtQueryByPage = this.connection.prepareStatement("""
+                    SELECT id, content, category
+                    FROM %s
+                    ORDER BY category
+                    LIMIT ? OFFSET ?;""".formatted(NAME_TIPS));
         }
         return this.stmtQueryByPage;
     }

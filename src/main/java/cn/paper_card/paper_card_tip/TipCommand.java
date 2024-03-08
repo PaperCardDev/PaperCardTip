@@ -24,6 +24,9 @@ class TipCommand extends TheMcCommand.HasSub {
 
     private final @NotNull Permission permission;
 
+    private final @NotNull Update updateCmd;
+    private final @NotNull Delete deleteCmd;
+
     private final @NotNull HashMap<UUID, PaperCardTipApi.Tip> toDeletes;
 
     TipCommand(@NotNull PaperCardTip plugin) {
@@ -38,11 +41,15 @@ class TipCommand extends TheMcCommand.HasSub {
 
         this.toDeletes = new HashMap<>();
 
+        this.updateCmd = new Update();
+        this.addSubCommand(this.updateCmd);
+
+        this.deleteCmd = new Delete();
+        this.addSubCommand(this.deleteCmd);
+
         this.addSubCommand(new ListAll());
         this.addSubCommand(new Id());
         this.addSubCommand(new Add());
-        this.addSubCommand(new Update());
-        this.addSubCommand(new Delete());
         this.addSubCommand(new DeleteConfirmCancel(true));
         this.addSubCommand(new DeleteConfirmCancel(false));
     }
@@ -574,6 +581,9 @@ class TipCommand extends TheMcCommand.HasSub {
                 if (size == 0) {
                     text.append(Component.text("本页没有任何记录啦").color(NamedTextColor.GRAY));
                 } else {
+                    final boolean canNotDelete = deleteCmd.canNotExecute(commandSender);
+                    final boolean canNotUpdate = updateCmd.canNotExecute(commandSender);
+
                     text.append(Component.text("ID | 内容 | 分类 | 操作").color(NamedTextColor.GRAY));
 
                     for (PaperCardTipApi.Tip tip : list) {
@@ -593,16 +603,20 @@ class TipCommand extends TheMcCommand.HasSub {
                         );
                         text.append(Component.text(" | "));
 
-                        text.append(Component.text("[修改]")
-                                .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
-                                .clickEvent(ClickEvent.suggestCommand("/tip update %d ".formatted(tip.id())))
-                        );
-                        text.appendSpace();
+                        if (!canNotUpdate) {
+                            text.append(Component.text("[修改]")
+                                    .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                                    .clickEvent(ClickEvent.suggestCommand("/tip update %d ".formatted(tip.id())))
+                            );
+                        }
 
-                        text.append(Component.text("[删除]")
-                                .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
-                                .clickEvent(ClickEvent.runCommand("/tip delete %d".formatted(tip.id())))
-                        );
+                        if (!canNotDelete) {
+                            text.appendSpace();
+                            text.append(Component.text("[删除]")
+                                    .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
+                                    .clickEvent(ClickEvent.runCommand("/tip delete %d".formatted(tip.id())))
+                            );
+                        }
                     }
                 }
 
