@@ -87,13 +87,18 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final PaperCardTipApi.Tip tip = new PaperCardTipApi.Tip(0, argContent, argCategory);
                 final int id;
 
                 try {
-                    id = plugin.addTip(tip);
+                    id = api.addTip(tip);
                 } catch (SQLException e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -190,11 +195,17 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
+
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final boolean updated;
 
                 try {
-                    updated = plugin.updateTipById(new PaperCardTipApi.Tip(id, argContent, argCategory));
+                    updated = api.updateTipById(new PaperCardTipApi.Tip(id, argContent, argCategory));
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -297,11 +308,17 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
+
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final PaperCardTipApi.Tip tip;
 
                 try {
-                    tip = plugin.queryById(id);
+                    tip = api.queryById(id);
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -396,11 +413,17 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
+
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final boolean deleted;
 
                 try {
-                    deleted = plugin.deleteTip(tip.id());
+                    deleted = api.deleteTip(tip.id());
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -455,11 +478,17 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
+
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final PaperCardTipApi.Tip tip;
 
                 try {
-                    tip = plugin.queryById(id);
+                    tip = api.queryById(id);
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -531,12 +560,18 @@ class TipCommand extends TheMcCommand.HasSub {
                 }
             }
 
+            final TipApiImpl api = plugin.getTipApi();
+            if (api == null) {
+                plugin.sendError(commandSender, "api is null!");
+                return true;
+            }
+
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final int pageSize = 4;
                 final List<PaperCardTipApi.Tip> list;
 
                 try {
-                    list = plugin.queryByPage(pageSize, (pageNo - 1) * pageSize);
+                    list = api.queryByPage(pageSize, (pageNo - 1) * pageSize);
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
