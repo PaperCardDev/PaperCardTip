@@ -68,24 +68,28 @@ class TipCommand extends TheMcCommand.HasSub {
 
         @Override
         public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
-            // <内容> <分类>
-            final String argContent = strings.length > 0 ? strings[0] : null;
-            final String argCategory = strings.length > 1 ? strings[1] : null;
+            // <分类> <内容>
 
-            if (argContent == null) {
-                plugin.sendError(commandSender, "你必须提供参数：Tip的内容");
-                return true;
-            }
+            final String argCategory = strings.length > 0 ? strings[0] : null;
+            final String argFirstContent = strings.length > 1 ? strings[1] : null;
 
             if (argCategory == null) {
                 plugin.sendError(commandSender, "你必须提供参数：Tip的分类");
                 return true;
             }
 
-            if (strings.length != 2) {
-                plugin.sendError(commandSender, "只需要两个参数，你提供了%d个参数，是不是参数里有空格？".formatted(strings.length));
+            if (argFirstContent == null) {
+                plugin.sendError(commandSender, "你必须提供参数：Tip的内容");
                 return true;
             }
+
+            final StringBuilder sb = new StringBuilder();
+            sb.append(argFirstContent);
+            for (int i = 1; i < strings.length; ++i) {
+                sb.append(' ');
+                sb.append(strings[i]);
+            }
+            final String content = sb.toString();
 
             final TipApiImpl api = plugin.getTipApi();
             if (api == null) {
@@ -94,9 +98,9 @@ class TipCommand extends TheMcCommand.HasSub {
             }
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-                final PaperCardTipApi.Tip tip = new PaperCardTipApi.Tip(0, argContent, argCategory);
-                final int id;
+                final PaperCardTipApi.Tip tip = new PaperCardTipApi.Tip(0, content, argCategory);
 
+                final int id;
                 try {
                     id = api.addTip(tip);
                 } catch (SQLException e) {
@@ -122,22 +126,12 @@ class TipCommand extends TheMcCommand.HasSub {
         @Override
         public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
             if (strings.length == 1) {
-                final String arg = strings[0];
-                if (arg.isEmpty()) {
-                    final LinkedList<String> list = new LinkedList<>();
-                    list.add("<内容>");
-                    return list;
-                }
+                if (strings[0].isEmpty()) return Collections.singletonList("<分类>");
                 return null;
             }
 
             if (strings.length == 2) {
-                final String arg = strings[1];
-                if (arg.isEmpty()) {
-                    final LinkedList<String> list = new LinkedList<>();
-                    list.add("<分类>");
-                    return list;
-                }
+                if (strings[1].isEmpty()) return Collections.singletonList("<内容>...");
                 return null;
             }
 
@@ -161,18 +155,13 @@ class TipCommand extends TheMcCommand.HasSub {
 
         @Override
         public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
-            // <id> <内容> <分类>
+            // <id> <分类> <内容>...
             final String argId = strings.length > 0 ? strings[0] : null;
-            final String argContent = strings.length > 1 ? strings[1] : null;
-            final String argCategory = strings.length > 2 ? strings[2] : null;
+            final String argCategory = strings.length > 1 ? strings[1] : null;
+            final String argFirstContent = strings.length > 2 ? strings[2] : null;
 
             if (argId == null) {
                 plugin.sendError(commandSender, "你必须提供参数：ID");
-                return true;
-            }
-
-            if (argContent == null) {
-                plugin.sendError(commandSender, "你必须提供参数：内容");
                 return true;
             }
 
@@ -181,10 +170,11 @@ class TipCommand extends TheMcCommand.HasSub {
                 return true;
             }
 
-            if (strings.length != 3) {
-                plugin.sendError(commandSender, "只需要3个参数，而你提供了%d个参数，参数里有空格？".formatted(strings.length));
+            if (argFirstContent == null) {
+                plugin.sendError(commandSender, "你必须提供参数：内容");
                 return true;
             }
+
 
             final int id;
 
@@ -194,6 +184,14 @@ class TipCommand extends TheMcCommand.HasSub {
                 plugin.sendError(commandSender, "%s 不是正确的ID".formatted(argId));
                 return true;
             }
+
+            final StringBuilder sb = new StringBuilder();
+            sb.append(argFirstContent);
+            for (int i = 3; i < strings.length; ++i) {
+                sb.append(' ');
+                sb.append(strings[i]);
+            }
+            final String content = sb.toString();
 
             final TipApiImpl api = plugin.getTipApi();
             if (api == null) {
@@ -205,7 +203,7 @@ class TipCommand extends TheMcCommand.HasSub {
                 final boolean updated;
 
                 try {
-                    updated = api.updateTipById(new PaperCardTipApi.Tip(id, argContent, argCategory));
+                    updated = api.updateTipById(new PaperCardTipApi.Tip(id, content, argCategory));
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     plugin.sendException(commandSender, e);
@@ -236,32 +234,17 @@ class TipCommand extends TheMcCommand.HasSub {
         @Override
         public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
             if (strings.length == 1) {
-                final String argId = strings[0];
-                if (argId.isEmpty()) {
-                    final LinkedList<String> list = new LinkedList<>();
-                    list.add("<ID>");
-                    return list;
-                }
+                if (strings[0].isEmpty()) return Collections.singletonList("<ID>");
                 return null;
             }
 
             if (strings.length == 2) {
-                final String argContent = strings[1];
-                if (argContent.isEmpty()) {
-                    final LinkedList<String> list = new LinkedList<>();
-                    list.add("<内容>");
-                    return list;
-                }
+                if (strings[1].isEmpty()) return Collections.singletonList("<分类>");
                 return null;
             }
 
             if (strings.length == 3) {
-                final String argCategory = strings[2];
-                if (argCategory.isEmpty()) {
-                    final LinkedList<String> list = new LinkedList<>();
-                    list.add("<分类>");
-                    return list;
-                }
+                if (strings[2].isEmpty()) return Collections.singletonList("<内容>...");
                 return null;
             }
 
