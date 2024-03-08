@@ -28,26 +28,24 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
     private Table table = null;
     private Connection connection = null;
 
-    private final @NotNull TextComponent prefix;
-
     private final @NotNull TaskScheduler taskScheduler;
 
     private MyScheduledTask myScheduledTask = null;
 
     public PaperCardTip() {
-
-        this.prefix = Component.text()
-                .append(Component.text("[").color(NamedTextColor.LIGHT_PURPLE))
-                .append(Component.text(this.getName()).color(NamedTextColor.AQUA))
-                .append(Component.text("]").color(NamedTextColor.LIGHT_PURPLE))
-                .build();
-
         this.taskScheduler = UniversalScheduler.getScheduler(this);
+    }
+
+    void appendPrefix(@NotNull TextComponent.Builder text) {
+        text.append(Component.text("[").color(NamedTextColor.LIGHT_PURPLE));
+        text.append(Component.text(this.getName()).color(NamedTextColor.AQUA));
+        text.append(Component.text("]").color(NamedTextColor.LIGHT_PURPLE));
     }
 
     private @NotNull Table getTable() throws SQLException {
         final Connection newCon = this.mySqlConnection.getRawConnection();
-        if (this.connection != null && this.connection == newCon) return this.table;
+
+        if (this.connection != null && this.connection == newCon && this.table != null) return this.table;
 
         if (this.table != null) this.table.close();
         this.table = new Table(newCon);
@@ -82,8 +80,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
             final int n = this.queryCount();
             this.getLogger().info("一共%d条Tip".formatted(n));
         } catch (SQLException e) {
-            this.getLogger().severe(e.toString());
-            e.printStackTrace();
+            this.getSLF4JLogger().error("", e);
         }
 
         if (this.myScheduledTask == null) {
@@ -92,7 +89,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 try {
                     count = this.queryCount();
                 } catch (SQLException e) {
-                    e.printStackTrace();
+                    this.getSLF4JLogger().error("", e);
                     return;
                 }
 
@@ -105,7 +102,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 try {
                     tips = this.queryByPage(1, i);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    this.getSLF4JLogger().error("", e);
                     return;
                 }
 
@@ -143,8 +140,7 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
                 try {
                     this.table.close();
                 } catch (SQLException e) {
-                    this.getLogger().severe(e.toString());
-                    e.printStackTrace();
+                    this.getSLF4JLogger().error("", e);
                 }
                 this.table = null;
             }
@@ -345,39 +341,41 @@ public final class PaperCardTip extends JavaPlugin implements PaperCardTipApi {
     }
 
     void sendError(@NotNull CommandSender sender, @NotNull String error) {
-        sender.sendMessage(Component.text()
-                .append(this.prefix)
-                .appendSpace()
-                .append(Component.text(error).color(NamedTextColor.RED))
-                .build()
-        );
+        final TextComponent.Builder text = Component.text();
+        this.appendPrefix(text);
+        text.appendSpace();
+        text.append(Component.text(error).color(NamedTextColor.RED));
+        sender.sendMessage(text.build());
+    }
+
+    void sendException(@NotNull CommandSender sender, @NotNull Throwable e) {
+        final TextComponent.Builder text = Component.text();
+        this.appendPrefix(text);
+        text.appendSpace();
+        text.append(Component.text("==== 异常信息 ====").color(NamedTextColor.DARK_RED));
+
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            text.appendNewline();
+            text.append(Component.text(t.toString()).color(NamedTextColor.RED));
+        }
+
+        sender.sendMessage(text.build());
     }
 
     void sendInfo(@NotNull CommandSender sender, @NotNull String info) {
-        sender.sendMessage(Component.text()
-                .append(this.prefix)
-                .appendSpace()
-                .append(Component.text(info).color(NamedTextColor.GREEN))
-                .build()
-        );
-    }
-
-    void sendInfo(@NotNull CommandSender sender, @NotNull TextComponent info) {
-        sender.sendMessage(Component.text()
-                .append(this.prefix)
-                .appendSpace()
-                .append(info)
-                .build()
-        );
+        final TextComponent.Builder text = Component.text();
+        this.appendPrefix(text);
+        text.appendSpace();
+        text.append(Component.text(info).color(NamedTextColor.GREEN));
+        sender.sendMessage(text.build());
     }
 
 
     void sendWarning(@NotNull CommandSender sender, @NotNull String warning) {
-        sender.sendMessage(Component.text()
-                .append(this.prefix)
-                .appendSpace()
-                .append(Component.text(warning).color(NamedTextColor.YELLOW))
-                .build()
-        );
+        final TextComponent.Builder text = Component.text();
+        this.appendPrefix(text);
+        text.appendSpace();
+        text.append(Component.text(warning).color(NamedTextColor.YELLOW));
+        sender.sendMessage(text.build());
     }
 }

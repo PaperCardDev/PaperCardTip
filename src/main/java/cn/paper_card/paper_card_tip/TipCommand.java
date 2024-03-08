@@ -95,20 +95,20 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     id = plugin.addTip(tip);
                 } catch (SQLException e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
                 final TextComponent.Builder text = Component.text();
-                text.append(Component.text("添加Tip成功，ID: %d".formatted(id)).color(NamedTextColor.GREEN));
+                plugin.appendPrefix(text);
+                text.append(Component.text(" 添加Tip成功，ID: %d".formatted(id)));
                 text.appendSpace();
                 text.append(Component.text("[点击查看]")
                         .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
                         .clickEvent(ClickEvent.runCommand("/tip id %d".formatted(id)))
                 );
-
-                plugin.sendInfo(commandSender, text.build());
+                commandSender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
@@ -196,8 +196,8 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     updated = plugin.updateTipById(new PaperCardTipApi.Tip(id, argContent, argCategory));
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
@@ -207,7 +207,8 @@ class TipCommand extends TheMcCommand.HasSub {
                 }
 
                 final TextComponent.Builder text = Component.text();
-                text.append(Component.text("已修改ID为%d的Tip".formatted(id)).color(NamedTextColor.GREEN));
+                plugin.appendPrefix(text);
+                text.append(Component.text(" 已修改ID为%d的Tip".formatted(id)));
                 text.appendSpace();
                 text.append(Component.text("[查看]")
                         .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
@@ -215,7 +216,7 @@ class TipCommand extends TheMcCommand.HasSub {
                         .hoverEvent(HoverEvent.showText(Component.text("点击查看")))
                 );
 
-                plugin.sendInfo(commandSender, text.build());
+                commandSender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
@@ -302,8 +303,8 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     tip = plugin.queryById(id);
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
@@ -318,10 +319,12 @@ class TipCommand extends TheMcCommand.HasSub {
                 }
 
                 final TextComponent.Builder text = Component.text();
-                text.append(Component.text("确认删除Tip？").color(NamedTextColor.YELLOW));
-                text.appendNewline();
+                plugin.appendPrefix(text);
+                text.append(Component.text(" 确认删除Tip？").color(NamedTextColor.YELLOW));
 
+                text.appendNewline();
                 plugin.appendTipInfo(text, tip);
+
                 text.appendNewline();
                 text.append(Component.text("[确认]")
                         .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
@@ -333,7 +336,7 @@ class TipCommand extends TheMcCommand.HasSub {
                         .clickEvent(ClickEvent.runCommand("/tip delete-cancel"))
                 );
 
-                plugin.sendInfo(commandSender, text.build());
+                commandSender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
@@ -399,8 +402,8 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     deleted = plugin.deleteTip(tip.id());
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
@@ -458,8 +461,8 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     tip = plugin.queryById(id);
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
@@ -469,11 +472,14 @@ class TipCommand extends TheMcCommand.HasSub {
                 }
 
                 final TextComponent.Builder text = Component.text();
+                plugin.appendPrefix(text);
+                text.appendSpace();
                 text.append(Component.text("==== 以%d为ID的Tip ====".formatted(id)));
+
                 text.appendNewline();
                 plugin.appendTipInfo(text, tip);
 
-                plugin.sendInfo(commandSender, text.build());
+                commandSender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
@@ -532,26 +538,28 @@ class TipCommand extends TheMcCommand.HasSub {
                 try {
                     list = plugin.queryByPage(pageSize, (pageNo - 1) * pageSize);
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    plugin.sendError(commandSender, e.toString());
+                    plugin.getSLF4JLogger().error("", e);
+                    plugin.sendException(commandSender, e);
                     return;
                 }
 
                 final int size = list.size();
 
                 final TextComponent.Builder text = Component.text();
+                plugin.appendPrefix(text);
+
+                text.appendSpace();
                 text.append(Component.text("==== Tips | 第%d页 ====".formatted(pageNo)).color(NamedTextColor.GREEN));
+
+
                 text.appendNewline();
-
-
                 if (size == 0) {
                     text.append(Component.text("本页没有任何记录啦").color(NamedTextColor.GRAY));
-                    text.appendNewline();
                 } else {
                     text.append(Component.text("ID | 内容 | 分类 | 操作").color(NamedTextColor.GRAY));
-                    text.appendNewline();
 
                     for (PaperCardTipApi.Tip tip : list) {
+                        text.appendNewline();
                         text.append(Component.text(tip.id()).color(NamedTextColor.GRAY));
                         text.append(Component.text(" | "));
 
@@ -560,7 +568,6 @@ class TipCommand extends TheMcCommand.HasSub {
                                 .hoverEvent(HoverEvent.showText(Component.text("点击复制")))
                         );
                         text.append(Component.text(" | "));
-
 
                         text.append(Component.text(tip.category()).color(NamedTextColor.GOLD)
                                 .clickEvent(ClickEvent.copyToClipboard(tip.category()))
@@ -578,14 +585,13 @@ class TipCommand extends TheMcCommand.HasSub {
                                 .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
                                 .clickEvent(ClickEvent.runCommand("/tip delete %d".formatted(tip.id())))
                         );
-
-                        text.appendNewline();
                     }
                 }
 
                 final boolean hasPre = pageNo > 1;
                 final boolean noNext = size < pageSize;
 
+                text.appendNewline();
                 text.append(Component.text("[上一页]")
                         .color(NamedTextColor.GRAY).decorate(TextDecoration.UNDERLINED)
                         .clickEvent(hasPre ? ClickEvent.runCommand("/tip list %d".formatted(pageNo - 1)) : null)
@@ -599,7 +605,7 @@ class TipCommand extends TheMcCommand.HasSub {
                         .hoverEvent(HoverEvent.showText(Component.text(noNext ? "没有下一页啦" : "点击下一页")))
                 );
 
-                plugin.sendInfo(commandSender, text.build());
+                commandSender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
